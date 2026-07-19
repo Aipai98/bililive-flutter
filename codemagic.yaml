@@ -3,7 +3,7 @@
 workflows:
   ios-ipa-unsigned:
     name: iOS IPA (unsigned)
-    instance_type: mac_mini_m1
+    instance_type: mac_mini_m2
     max_build_duration: 30
     environment:
       flutter: stable
@@ -16,8 +16,16 @@ workflows:
         script: cd ios && pod install
       - name: Build unsigned IPA
         script: flutter build ipa --no-codesign --release
+      - name: Verify & expose IPA
+        script: |
+          echo "=== 查找 IPA 文件 ==="
+          find . -name "*.ipa" -type f 2>/dev/null
+          echo "=== 复制到根目录 ==="
+          cp -v build/ios/ipa/*.ipa $CM_BUILD_DIR/Runner.ipa 2>/dev/null || echo "IPA 不在预期路径"
+          ls -lh $CM_BUILD_DIR/Runner.ipa 2>/dev/null || echo "根目录无 IPA"
     artifacts:
       - build/ios/ipa/*.ipa
+      - Runner.ipa
     publishing:
       email:
         recipients:
