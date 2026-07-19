@@ -24,6 +24,12 @@ jobs:
       - name: Flutter pub get
         run: flutter pub get
 
+      - name: Install CocoaPods deps (regenerate Pods + Podfile.lock in sync)
+        run: |
+          cd ios
+          rm -rf Pods Podfile.lock
+          pod install
+
       - name: Build & Package IPA (manual — avoid codesign/team requirement)
         run: |
           # 用 `build ios --no-codesign` 只编译出 .app，不触发 export/签名（无需 Development Team）
