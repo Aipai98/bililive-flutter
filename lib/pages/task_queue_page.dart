@@ -206,6 +206,8 @@ class _TaskCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 预计剩余时间（仅进行中且有进度/时长时才有值）
+    final rem = _isRunning ? estimateRemaining(_progress, _duration) : null;
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 4),
       clipBehavior: Clip.antiAlias,
@@ -265,12 +267,9 @@ class _TaskCard extends StatelessWidget {
                 const Text(' · ', style: TextStyle(color: Colors.grey)),
                 Text('耗时 ${fmtDur(_duration)}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
               ],
-              if (_isRunning) ...[
-                final rem = estimateRemaining(_progress, _duration);
-                if (rem != null) ...[
-                  const Text(' · ', style: TextStyle(color: Colors.grey)),
-                  Text('剩余约 $rem', style: const TextStyle(fontSize: 11, color: Colors.orange)),
-                ],
+              if (rem != null) ...[
+                const Text(' · ', style: TextStyle(color: Colors.grey)),
+                Text('剩余约 $rem', style: const TextStyle(fontSize: 11, color: Colors.orange)),
               ],
             ]),
             // 速度/详细信息（如比特率、速率）
@@ -294,7 +293,7 @@ class _TaskCard extends StatelessWidget {
           if (errMsg.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 4),
-              Text('错误：$errMsg',
+              child: Text('错误：$errMsg',
                   style: const TextStyle(fontSize: 11, color: Colors.red)),
             ),
 
@@ -302,7 +301,7 @@ class _TaskCard extends StatelessWidget {
           if (_startTime > 0) ...[
             const SizedBox(height: 4),
             Text('开始时间: ${fmtFullTime(_startTime)}',
-                style: const TextStyle(fontSize: 10, color: Colors.grey[500])),
+                style: const TextStyle(fontSize: 10, color: Colors.grey.shade500)),
           ],
         ]),
       ),
