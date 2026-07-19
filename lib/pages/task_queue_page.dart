@@ -99,12 +99,13 @@ class _TaskQueuePageState extends State<TaskQueuePage> {
     }
   }
 
-  /// 格式化完整日期时间
+  /// 格式化完整日期时间（与后台一致：2026/7/19 13:25:26）
   String _fmtFullTime(int ms) {
     if (ms <= 0) return '';
     final d = DateTime.fromMillisecondsSinceEpoch(ms);
-    return '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')} '
-        '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}:${d.second.toString().padLeft(2, '0')}';
+    final p2 = (int n) => n.toString().padLeft(2, '0');
+    return '${d.year}/${d.month}/${d.day} '
+        '${p2(d.hour)}:${p2(d.minute)}:${p2(d.second)}';
   }
 
   /// 格式化简短时间（月日 时:分）
@@ -115,19 +116,16 @@ class _TaskQueuePageState extends State<TaskQueuePage> {
         '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
   }
 
-  /// 格式化时长（秒 → 可读字符串）
+  /// 格式化时长（秒 → 与后台一致：X小时Y分钟Z秒）
   String _fmtDur(int sec) {
-    if (sec <= 0) return '';
-    if (sec < 60) return '${sec}秒';
-    final m = (sec / 60).floor();
+    if (sec <= 0) return '0秒';
+    final p2 = (int n) => n.toString().padLeft(2, '0');
+    final h = sec ~/ 3600;
+    final m = (sec % 3600) ~/ 60;
     final s = sec % 60;
-    if (m < 60) return '${m}分${s > 0 ? '$s秒' : ''}';
-    final h = (m / 60).floor();
-    final rm = m % 60;
-    if (h < 24) return '${h}时${rm > 0 ? '${rm}分' : ''}';
-    final d = (h / 24).floor();
-    final rh = h % 24;
-    return '${d}天${rh > 0 ? '${rh}时' : ''}';
+    if (h > 0) return '${p2(h)}小时${p2(m)}分钟${p2(s)}秒';
+    if (m > 0) return '${m}分钟${s}秒';
+    return '${s}秒';
   }
 
   /// 计算预计剩余时间（基于当前进度和已耗时）
@@ -193,7 +191,9 @@ class _TaskCard extends StatelessWidget {
     return 0;
   }
 
-  int get _duration => int.tryParse(task['duration']?.toString() ?? '0') ?? 0;
+  // 后端 duration 单位为毫秒，转成秒供显示/估算（之前当秒用差 1000 倍，导致耗时/剩余对不上）
+  int get _duration =>
+      ((int.tryParse(task['duration']?.toString() ?? '0') ?? 0) / 1000).round();
   int get _startTime => int.tryParse(task['startTime']?.toString() ?? '0') ?? 0;
   int get _endTime => int.tryParse(task['endTime']?.toString() ?? '0') ?? 0;
   String get status => task['status']?.toString() ?? '';
@@ -265,11 +265,11 @@ class _TaskCard extends StatelessWidget {
                   style: TextStyle(fontSize: 11, color: _isRunning ? Colors.blue : Colors.grey, fontWeight: FontWeight.w600)),
               if (_duration > 0) ...[
                 const Text(' · ', style: TextStyle(color: Colors.grey)),
-                Text('耗时 ${fmtDur(_duration)}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                Text('持续时间：${fmtDur(_duration)}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
               ],
               if (rem != null) ...[
                 const Text(' · ', style: TextStyle(color: Colors.grey)),
-                Text('剩余约 $rem', style: const TextStyle(fontSize: 11, color: Colors.orange)),
+                Text('预计还需：$rem', style: const TextStyle(fontSize: 11, color: Colors.orange)),
               ],
             ]),
             // 速度/详细信息（如比特率、速率）
@@ -284,7 +284,7 @@ class _TaskCard extends StatelessWidget {
           // 非进行中但有时长的任务
           if (!_isRunning && _progress <= 0 && _duration > 0) ...[
             const SizedBox(height: 4),
-            Text('耗时 ${fmtDur(_duration)}'
+            Text('持续时间：${fmtDur(_duration)}'
                 '${_endTime > 0 ? ' · ${fmtShortTime(_startTime)} ~ ${fmtShortTime(_endTime)}' : ''}',
                 style: const TextStyle(fontSize: 11, color: Colors.grey)),
           ],
@@ -300,7 +300,7 @@ class _TaskCard extends StatelessWidget {
           // 开始时间（完整格式，折叠查看）
           if (_startTime > 0) ...[
             const SizedBox(height: 4),
-            Text('开始时间: ${fmtFullTime(_startTime)}',
+            Text('开始时间：${fmtFullTime(_startTime)}',
                 style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
           ],
         ]),
