@@ -306,117 +306,156 @@ class _StreamerCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final plat = mapPlatform(s.providerId);
+    final showRec = s.isRecording &&
+        ((s.usedStream != null && s.usedStream!.isNotEmpty) ||
+            (s.recordProgress != null && s.recordProgress!.isNotEmpty));
     return Card(
-      margin: const EdgeInsets.all(8),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+      elevation: 2,
+      shadowColor: const Color(0x1A000000),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(10),
-        child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-          // 封面
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: Container(
-              width: 110, height: 80, color: const Color(0xFFEEEEEE),
-              child: (s.cover != null && s.cover!.isNotEmpty)
-                  ? Image.network(s.cover!, fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => const Icon(Icons.image, color: Colors.grey))
-                  : const Icon(Icons.image, color: Colors.grey),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            // 标题行：主播名（左）+ 画质/已录时长（右上角，仅录制中显示）
-            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Expanded(
-                child: Text(s.name,
-                    maxLines: 1, overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+        padding: const EdgeInsets.all(12),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          // 封面（加录制中角标）
+          Stack(children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                width: 96, height: 96, color: const Color(0xFFEEEEEE),
+                child: (s.cover != null && s.cover!.isNotEmpty)
+                    ? Image.network(s.cover!, fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => const Icon(Icons.image, color: Colors.grey))
+                    : const Icon(Icons.image, color: Colors.grey),
               ),
-              if (s.isRecording &&
-                  ((s.usedStream != null && s.usedStream!.isNotEmpty) ||
-                      (s.recordProgress != null && s.recordProgress!.isNotEmpty)))
-                Container(
-                  margin: const EdgeInsets.only(left: 6),
-                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+            ),
+            if (s.isRecording)
+              Positioned(
+                top: 6, left: 6,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: const Color(0x1AFB7299),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0x33FB7299)),
-                  ),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    if (s.usedStream != null && s.usedStream!.isNotEmpty)
-                      Text(s.usedStream!,
-                          style: const TextStyle(
-                              fontSize: 11,
-                              color: Color(0xFFFB7299),
-                              fontWeight: FontWeight.w600)),
-                    if (s.recordProgress != null && s.recordProgress!.isNotEmpty) ...[
-                      const SizedBox(width: 5),
-                      const Icon(Icons.fiber_manual_record, size: 8, color: Colors.red),
-                      const SizedBox(width: 3),
-                      Text(s.recordProgress!,
-                          style: const TextStyle(
-                              fontSize: 11, color: Color(0xFF333333))),
-                    ],
+                    color: Colors.red, borderRadius: BorderRadius.circular(6)),
+                  child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(Icons.fiber_manual_record, size: 7, color: Colors.white),
+                    SizedBox(width: 3),
+                    Text('LIVE', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
                   ]),
                 ),
-            ]),
-            if (s.liveTitle != null && s.liveTitle!.isNotEmpty) ...[
-              Text(s.liveTitle!, style: const TextStyle(fontSize: 12, color: Color(0xFFFB7299))),
-            ],
-            if (s.lastRecordTime != null && s.lastRecordTime! > 0) ...[
-              Text('上次录制: ${_ago(s.lastRecordTime!)}',
-                  style: const TextStyle(fontSize: 11, color: Colors.grey)),
-            ],
-            const SizedBox(height: 6),
-            Row(children: [
-              if (s.avatar != null && s.avatar!.isNotEmpty)
-                CircleAvatar(radius: 15, backgroundImage: NetworkImage(s.avatar!))
-              else
-                const CircleAvatar(radius: 15, child: Icon(Icons.person, size: 16)),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(s.remarks.isNotEmpty ? s.remarks : (s.url ?? s.channelId),
-                    style: const TextStyle(fontSize: 13, color: Color(0xFF333333))),
               ),
+          ]),
+          const SizedBox(width: 12),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            // 第一行：主播名（独占一行，不再被胶囊挤占）
+            Text(s.name,
+                maxLines: 1, overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1A1A1A))),
+            const SizedBox(height: 3),
+            // 录制中胶囊：画质 + 已录时长（独立一行，左对齐）
+            if (showRec)
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(color: _platformColor(s.providerId), borderRadius: BorderRadius.circular(11)),
-                child: Text(plat, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                margin: const EdgeInsets.only(top: 2, bottom: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0x14FB7299),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  if (s.usedStream != null && s.usedStream!.isNotEmpty)
+                    Text(s.usedStream!,
+                        style: const TextStyle(fontSize: 11, color: Color(0xFFFB7299), fontWeight: FontWeight.w600)),
+                  if (s.recordProgress != null && s.recordProgress!.isNotEmpty) ...[
+                    if (s.usedStream != null && s.usedStream!.isNotEmpty)
+                      const SizedBox(width: 6),
+                    const Icon(Icons.fiber_manual_record, size: 7, color: Colors.red),
+                    const SizedBox(width: 4),
+                    Text(s.recordProgress!,
+                        style: const TextStyle(fontSize: 11, color: Color(0xFF333333), fontWeight: FontWeight.w500)),
+                  ],
+                ]),
               ),
-              const SizedBox(width: 5),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(color: _statusColor, borderRadius: BorderRadius.circular(11)),
-                child: Text(_statusLabel, style: const TextStyle(color: Colors.white, fontSize: 11)),
+            // 直播标题
+            if (s.liveTitle != null && s.liveTitle!.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(s.liveTitle!,
+                    maxLines: 1, overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 12, color: Color(0xFFFB7299))),
               ),
-              IconButton(icon: const Icon(Icons.more_vert), onPressed: () => onMore(context)),
-            ]),
-            const SizedBox(height: 8),
+            // 次要信息：头像 + 备注 + 平台 + 状态
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Row(children: [
+                if (s.avatar != null && s.avatar!.isNotEmpty)
+                  CircleAvatar(radius: 13, backgroundImage: NetworkImage(s.avatar!))
+                else
+                  const CircleAvatar(radius: 13, backgroundColor: Color(0xFFF0F0F0), child: Icon(Icons.person, size: 14, color: Colors.grey)),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(s.remarks.isNotEmpty ? s.remarks : (s.url ?? s.channelId),
+                      maxLines: 1, overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 12, color: Color(0xFF666666))),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  decoration: BoxDecoration(color: _platformColor(s.providerId), borderRadius: BorderRadius.circular(6)),
+                  child: Text(plat, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600)),
+                ),
+                const SizedBox(width: 5),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  decoration: BoxDecoration(color: _statusColor, borderRadius: BorderRadius.circular(6)),
+                  child: Text(_statusLabel, style: const TextStyle(color: Colors.white, fontSize: 10)),
+                ),
+                IconButton(
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  icon: const Icon(Icons.more_vert, size: 18),
+                  padding: EdgeInsets.zero,
+                  onPressed: () => onMore(context)),
+              ]),
+            ),
+            if (s.lastRecordTime != null && s.lastRecordTime! > 0)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text('上次录制: ${_ago(s.lastRecordTime!)}',
+                    style: const TextStyle(fontSize: 11, color: Colors.grey)),
+              ),
+            const SizedBox(height: 10),
+            // 操作按钮：开/停录（填充高亮）+ 刷新 + 详情
             Row(children: [
               Expanded(
-                child: OutlinedButton(
+                child: FilledButton.tonal(
                   onPressed: s.isRecording ? onStop : onStart,
-                  style: OutlinedButton.styleFrom(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: s.isRecording ? const Color(0x1AF44336) : const Color(0x14FB7299),
                     foregroundColor: s.isRecording ? Colors.red : const Color(0xFFFB7299),
-                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
                   ),
-                  child: Text(s.isRecording ? '停录' : '开录'),
+                  child: Text(s.isRecording ? '停止录制' : '开始录制',
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                 ),
               ),
-              const SizedBox(width: 5),
+              const SizedBox(width: 8),
               Expanded(
                 child: OutlinedButton(
                   onPressed: onCheck,
-                  style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 4)),
-                  child: const Text('刷新'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    side: BorderSide(color: Colors.grey.shade300),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
+                  ),
+                  child: const Text('刷新', style: TextStyle(fontSize: 13)),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 4),
               GestureDetector(
                 onTap: () => onDetail(s),
                 child: const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+                  padding: EdgeInsets.symmetric(vertical: 8, horizontal: 8),
                   child: Text('详情', style: TextStyle(color: Color(0xFF2196F3), fontSize: 12)),
                 ),
               ),
