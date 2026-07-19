@@ -301,7 +301,7 @@ class _TaskCard extends StatelessWidget {
           if (_startTime > 0) ...[
             const SizedBox(height: 4),
             Text('开始时间: ${fmtFullTime(_startTime)}',
-                style: const TextStyle(fontSize: 10, color: Colors.grey.shade500)),
+                style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
           ],
         ]),
       ),
