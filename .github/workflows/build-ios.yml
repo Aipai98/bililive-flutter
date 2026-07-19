@@ -1,7 +1,7 @@
 name: Build iOS IPA
 
 on:
-  workflow_dispatch:   # 手动触发（GitHub 网页点一下就编）
+  workflow_dispatch:   # 手动触发
   push:
     branches: [main]
 
@@ -13,11 +13,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: 'stable'
-          channel: 'stable'
+      - name: Install Flutter SDK
+        run: |
+          git clone --depth 1 --branch stable https://github.com/flutter/flutter.git $HOME/flutter-sdk
+          echo "$HOME/flutter-sdk/bin" >> $GITHUB_PATH
 
       - name: Flutter pub get
         run: flutter pub get
