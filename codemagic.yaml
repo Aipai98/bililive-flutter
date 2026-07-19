@@ -1,0 +1,24 @@
+# Codemagic 配置：无需本地 Mac，云端 macOS 直接出 IPA
+# 用法见 README「在 Codemagic 出 IPA（无需 Mac）」一节
+workflows:
+  ios-ipa-unsigned:
+    name: iOS IPA (unsigned)
+    instance_type: mac_mini_m1
+    max_build_duration: 30
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: Flutter pub get
+        script: flutter pub get
+      - name: Install CocoaPods dependencies
+        script: cd ios && pod install
+      - name: Build unsigned IPA
+        script: flutter build ipa --no-codesign --release
+    artifacts:
+      - build/ios/ipa/*.ipa
+    publishing:
+      email:
+        recipients:
+          - user@example.com   # 改成你自己的邮箱，构建完成会收到下载链接；也可留空直接在 Codemagic 控制台下载
