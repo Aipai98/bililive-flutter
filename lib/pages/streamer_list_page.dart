@@ -3,6 +3,19 @@ import '../models/streamer.dart';
 import '../services/api_service.dart';
 import 'streamer_detail_page.dart';
 
+// 文件级共享方法：平台ID → 中文显示名
+String mapPlatform(String p) {
+  switch (p) {
+    case 'DouYin': return '抖音';
+    case 'Bilibili': return 'B站';
+    case 'DouYu': return '斗鱼';
+    case 'Huya': return '虎牙';
+    case 'KS':
+    case 'Kuaishou': return '快手';
+    default: return p.length > 2 ? p.substring(0, 2) : p;
+  }
+}
+
 class StreamerListPage extends StatefulWidget {
   final ApiService api;
   const StreamerListPage({super.key, required this.api});
@@ -159,17 +172,25 @@ class _StreamerListPageState extends State<StreamerListPage> {
   Future<void> _addByUrl(String url, String remarks) async {
     try {
       final r = await widget.api.resolveChannel(url);
+      final platName = mapPlatform(r['providerId']!);
       await widget.api.addStreamer(
           r['providerId']!, r['channelId']!, remarks);
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('添加成功')));
-        _load();
+        // 更明显的成功提示，包含平台信息
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('✓ 已添加 $platName 主播${remarks.isNotEmpty ? "「$remarks」" : ""}'),
+          duration: const Duration(seconds: 3),
+          behavior: SnackBarBehavior.floating,
+        ));
+        // 稍微延迟刷新，让后端有时间填充头像等信息
+        Future.delayed(const Duration(milliseconds: 800), () {
+          if (mounted) _load();
+        });
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('添加失败：$e')));
+            SnackBar(content: Text('添加失败：$e'), behavior: SnackBarBehavior.floating));
       }
     }
   }
@@ -207,7 +228,7 @@ class _StreamerListPageState extends State<StreamerListPage> {
                           onDetail: _openDetail,
                           onEdit: _showEdit,
                           onDelete: _confirmDelete,
-                          onCheck: () => _op('检查状态', () => widget.api.checkStreamer(_list[i].id)),
+                          onCheck: () => _op('刷新', () => widget.api.checkStreamer(_list[i].id)),
                           onStart: () => _op('开始录制', () => widget.api.startRecord(_list[i].id)),
                           onStop: () => _op('停止录制', () => widget.api.stopRecord(_list[i].id)),
                           onMore: (ctx) => _showMore(_list[i], ctx),
@@ -254,18 +275,6 @@ class _StreamerCard extends StatelessWidget {
     return Colors.grey;
   }
 
-  String _mapPlatform(String p) {
-    switch (p) {
-      case 'DouYin': return '抖音';
-      case 'Bilibili': return 'B站';
-      case 'DouYu': return '斗鱼';
-      case 'Huya': return '虎牙';
-      case 'KS':
-      case 'Kuaishou': return '快手';
-      default: return p.length > 2 ? p.substring(0, 2) : p;
-    }
-  }
-
   Color _platformColor(String p) {
     switch (p) {
       case 'DouYin': return const Color(0xFFFE2C55);
@@ -280,7 +289,7 @@ class _StreamerCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final plat = _mapPlatform(s.providerId);
+    final plat = mapPlatform(s.providerId);
     return Card(
       margin: const EdgeInsets.all(8),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -349,7 +358,7 @@ class _StreamerCard extends StatelessWidget {
                 child: OutlinedButton(
                   onPressed: onCheck,
                   style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 4)),
-                  child: const Text('检查'),
+                  child: const Text('刷新'),
                 ),
               ),
               const SizedBox(width: 8),

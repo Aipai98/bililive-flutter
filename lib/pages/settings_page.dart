@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
 
 class SettingsPage extends StatefulWidget {
@@ -15,14 +16,29 @@ class _SettingsPageState extends State<SettingsPage> {
   String _status = '';
   bool _testing = false;
 
+  static const _keyUrl = 'bili_server_url';
+  static const _keyPass = 'bili_server_pass';
+
   @override
   void initState() {
     super.initState();
     _restore();
   }
 
-  void _restore() {
-    if (widget.api.baseUrl.isNotEmpty) _urlC.text = widget.api.baseUrl;
+  Future<void> _restore() async {
+    try {
+      final sp = await SharedPreferences.getInstance();
+      final url = sp.getString(_keyUrl) ?? '';
+      final pass = sp.getString(_keyPass) ?? '';
+      if (url.isNotEmpty) {
+        _urlC.text = url;
+        _passC.text = pass;
+        // 自动恢复到 ApiService，这样打开 App 就直接可用
+        widget.api.setConfig(url, pass);
+      } else if (widget.api.baseUrl.isNotEmpty) {
+        _urlC.text = widget.api.baseUrl;
+      }
+    } catch (_) {}
   }
 
   Future<void> _save() async {
@@ -36,6 +52,12 @@ class _SettingsPageState extends State<SettingsPage> {
       url = 'http://' + url;
     }
     widget.api.setConfig(url, pass);
+    // 持久化到本地
+    try {
+      final sp = await SharedPreferences.getInstance();
+      await sp.setString(_keyUrl, url);
+      await sp.setString(_keyPass, pass);
+    } catch (_) {}
     setState(() => _status = '配置已保存，切到「主播」页即可使用');
     if (mounted) {
       ScaffoldMessenger.of(context)
