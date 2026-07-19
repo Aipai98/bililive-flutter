@@ -12,6 +12,9 @@ class Streamer {
   final int? lastRecordTime;
   final Map<String, dynamic>? extra;
   final Map<String, dynamic>? liveInfo;
+  // 正在录制时才有：使用的画质（如"原画1080P60"）和已录制时长（如"00:34:21"）
+  final String? usedStream;
+  final String? recordProgress;
 
   Streamer({
     required this.id,
@@ -27,11 +30,15 @@ class Streamer {
     this.lastRecordTime,
     this.extra,
     this.liveInfo,
+    this.usedStream,
+    this.recordProgress,
   });
 
   factory Streamer.fromJson(Map<String, dynamic> j) {
     final extra = j['extra'] as Map<String, dynamic>?;
     final liveInfo = j['liveInfo'] as Map<String, dynamic>?;
+    final recordHandle = j['recordHandle'] as Map<String, dynamic>?;
+    final progress = recordHandle?['progress'] as Map<String, dynamic>?;
     return Streamer(
       id: j['id']?.toString() ?? '',
       providerId: j['providerId']?.toString() ?? '',
@@ -46,6 +53,10 @@ class Streamer {
       lastRecordTime: _parseMtime(extra?['lastRecordTime']),
       liveInfo: liveInfo,
       extra: extra,
+      // 画质优先取顶层 usedStream，回退到 recordHandle.stream
+      usedStream:
+          j['usedStream']?.toString() ?? recordHandle?['stream']?.toString(),
+      recordProgress: progress?['time']?.toString(),
     );
   }
 

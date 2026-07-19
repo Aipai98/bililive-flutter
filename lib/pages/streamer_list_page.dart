@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/streamer.dart';
 import '../services/api_service.dart';
@@ -28,27 +29,42 @@ class _StreamerListPageState extends State<StreamerListPage> {
   List<Streamer> _list = [];
   bool _loading = false;
   String? _err;
+  Timer? _autoTimer;
 
   @override
   void initState() {
     super.initState();
     _load();
+    // 静默自动刷新：每 5 秒拉一次，让"录制中"的画质/已录时长实时走秒
+    _autoTimer = Timer.periodic(const Duration(seconds: 5), (_) => _load(silent: true));
   }
 
-  Future<void> _load() async {
-    setState(() => _loading = true);
+  @override
+  void dispose() {
+    _autoTimer?.cancel();
+    super.dispose();
+  }
+
+  // silent=true 时不显示整页 loading，用于后台定时刷新，避免闪烁
+  Future<void> _load({bool silent = false}) async {
+    if (!silent) setState(() => _loading = true);
     try {
       final data = await widget.api.getStreamerList();
+      if (!mounted) return;
       setState(() {
         _list = data;
         _loading = false;
         _err = null;
       });
     } catch (e) {
-      setState(() {
-        _loading = false;
-        _err = e.toString();
-      });
+      if (!mounted) return;
+      // 静默刷新失败不打断界面（保留上次数据），仅首屏/手动刷新才报错
+      if (!silent) {
+        setState(() {
+          _loading = false;
+          _err = e.toString();
+        });
+      }
     }
   }
 
@@ -309,7 +325,42 @@ class _StreamerCard extends StatelessWidget {
           ),
           const SizedBox(width: 12),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(s.name, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+            // 标题行：主播名（左）+ 画质/已录时长（右上角，仅录制中显示）
+            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Expanded(
+                child: Text(s.name,
+                    maxLines: 1, overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+              ),
+              if (s.isRecording &&
+                  ((s.usedStream != null && s.usedStream!.isNotEmpty) ||
+                      (s.recordProgress != null && s.recordProgress!.isNotEmpty)))
+                Container(
+                  margin: const EdgeInsets.only(left: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0x1AFB7299),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0x33FB7299)),
+                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    if (s.usedStream != null && s.usedStream!.isNotEmpty)
+                      Text(s.usedStream!,
+                          style: const TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFFFB7299),
+                              fontWeight: FontWeight.w600)),
+                    if (s.recordProgress != null && s.recordProgress!.isNotEmpty) ...[
+                      const SizedBox(width: 5),
+                      const Icon(Icons.fiber_manual_record, size: 8, color: Colors.red),
+                      const SizedBox(width: 3),
+                      Text(s.recordProgress!,
+                          style: const TextStyle(
+                              fontSize: 11, color: Color(0xFF333333))),
+                    ],
+                  ]),
+                ),
+            ]),
             if (s.liveTitle != null && s.liveTitle!.isNotEmpty) ...[
               Text(s.liveTitle!, style: const TextStyle(fontSize: 12, color: Color(0xFFFB7299))),
             ],

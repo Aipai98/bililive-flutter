@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 
@@ -13,15 +14,25 @@ class _TaskQueuePageState extends State<TaskQueuePage> {
   List<Map<String, dynamic>> _list = [];
   bool _loading = false;
   String? _err;
+  Timer? _autoTimer;
 
   @override
   void initState() {
     super.initState();
     _load();
+    // 静默自动刷新：每 3 秒拉一次任务队列，实时更新进度/剩余，无需手动刷新
+    _autoTimer = Timer.periodic(const Duration(seconds: 3), (_) => _load(silent: true));
   }
 
-  Future<void> _load() async {
-    setState(() => _loading = true);
+  @override
+  void dispose() {
+    _autoTimer?.cancel();
+    super.dispose();
+  }
+
+  // silent=true 时不显示整页 loading，用于后台定时刷新，避免闪烁
+  Future<void> _load({bool silent = false}) async {
+    if (!silent) setState(() => _loading = true);
     try {
       final data = await widget.api.getTaskList();
       // 排序：进行中优先，其余按开始时间倒序
@@ -33,16 +44,21 @@ class _TaskQueuePageState extends State<TaskQueuePage> {
         final bt = int.tryParse(b['startTime']?.toString() ?? '0') ?? 0;
         return bt - at;
       });
+      if (!mounted) return;
       setState(() {
         _list = data;
         _loading = false;
         _err = null;
       });
     } catch (e) {
-      setState(() {
-        _loading = false;
-        _err = e.toString();
-      });
+      if (!mounted) return;
+      // 静默刷新失败不打断界面（保留上次数据），仅首屏/手动刷新才报错
+      if (!silent) {
+        setState(() {
+          _loading = false;
+          _err = e.toString();
+        });
+      }
     }
   }
 
