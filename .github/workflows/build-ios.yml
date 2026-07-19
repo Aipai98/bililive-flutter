@@ -25,22 +25,26 @@ jobs:
         run: flutter pub get
 
       - name: Install CocoaPods
-        run: cd ios && pod install
+        run: cd ios && pod install --repo-update
 
       - name: Build unsigned IPA
-        run: flutter build ipa --no-codesign --release
-
-      - name: Find & expose IPA
         run: |
-          echo "=== 查找 IPA ==="
-          find . -name "*.ipa" -type f 2>/dev/null | while read f; do echo "FOUND: $f ($(du -h "$f" | cut -f1))"; done
-          mkdir -p output
-          cp -v $(find . -name "*.ipa" -type f 2>/dev/null | head -1) output/Runner.ipa 2>/dev/null || echo "NO IPA FOUND"
-          ls -lh output/ 2>/dev/null || true
+          echo "=== Flutter version ==="
+          flutter --version
+          echo "=== Starting build ==="
+          flutter build ipa --no-codesign --release --verbose 2>&1 | tail -50
+          echo "=== BUILD EXIT CODE: $? ==="
+          echo "=== Listing build/ios/ tree ==="
+          find build/ios -type f 2>/dev/null | head -30 || echo "build/ios empty"
+          echo "=== Any .ipa anywhere? ==="
+          find / -name "*.ipa" -type f 2>/dev/null | head -5 || echo "none"
 
-      - name: Upload IPA artifact
+      - name: Upload anything from build/ios/
         uses: actions/upload-artifact@v4
         with:
           name: Runner.ipa
-          path: output/
+          path: |
+            build/ios/**/*.ipa
+            build/ios/*.ipa
+            build/ios/ipa/**
           if-no-files-found: warn
