@@ -27,24 +27,53 @@ jobs:
       - name: Install CocoaPods
         run: cd ios && pod install --repo-update
 
-      - name: Build unsigned IPA
+      - name: Build & Export IPA
         run: |
-          echo "=== Flutter version ==="
-          flutter --version
-          echo "=== Starting build ==="
-          flutter build ipa --no-codesign --release --verbose 2>&1 | tail -50
-          echo "=== BUILD EXIT CODE: $? ==="
-          echo "=== Listing build/ios/ tree ==="
-          find build/ios -type f 2>/dev/null | head -30 || echo "build/ios empty"
-          echo "=== Any .ipa anywhere? ==="
-          find / -name "*.ipa" -type f 2>/dev/null | head -5 || echo "none"
+          # Step 1: Build the archive (flutter build ipa creates archive but doesn't export on --no-codesign)
+          flutter build ipa --no-codesign --release
 
-      - name: Upload anything from build/ios/
+          echo "=== Archive exists? ==="
+          ls -lh build/ios/archive/*.xcarchive 2>/dev/null || echo "NO ARCHIVE"
+
+          # Step 2: Create export options plist for no-signing export
+          cat > ExportOptions.plist << 'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>method</key>
+              <string>development</string>
+              <key>signingStyle</key>
+              <string>manual</string>
+              <key>stripSwiftSymbols</key>
+              <true/>
+              <key>teamID</key>
+              <string></string>
+              <key>compileBitcode</key>
+              <false/>
+          </dict>
+          </plist>
+          EOF
+
+          # Step 3: Export IPA from archive
+          mkdir -p build/ios/ipa
+          xcodebuild -exportArchive \
+            -archivePath build/ios/archive/Runner.xcarchive \
+            -exportOptionsPlist ExportOptions.plist \
+            -exportPath build/ios/ipa \
+            -allowProvisioningUpdates 2>&1 | tail -20
+
+          echo "=== IPA files ==="
+          find build/ios/ipa -name "*.ipa" -type f 2>/dev/null | while read f; do
+            echo "IPA: $f ($(du -h "$f" | cut -f1))"
+          done
+          ls -lh build/ios/ipa/ 2>/dev/null || echo "ipa dir empty"
+
+      - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
         with:
           name: Runner.ipa
           path: |
-            build/ios/**/*.ipa
-            build/ios/*.ipa
-            build/ios/ipa/**
+            build/ios/ipa/**/*.ipa
+            build/ios/ipa/*.ipa
           if-no-files-found: warn
