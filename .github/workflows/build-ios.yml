@@ -24,26 +24,42 @@ jobs:
       - name: Flutter pub get
         run: flutter pub get
 
+      - name: Configure Xcode project (no build — avoids flutter build team check)
+        run: flutter build ios --release --no-codesign --config-only
+
       - name: Install CocoaPods deps (regenerate Pods + Podfile.lock in sync)
         run: |
           cd ios
           rm -rf Pods Podfile.lock
           pod install
 
-      - name: Build & Package IPA (manual — avoid codesign/team requirement)
+      - name: Build unsigned .app via xcodebuild (signing fully disabled)
         run: |
-          # 用 `build ios --no-codesign` 只编译出 .app，不触发 export/签名（无需 Development Team）
-          flutter build ios --release --no-codesign
+          # 直接用 xcodebuild 并彻底关闭签名，绕开 flutter build 的 Development Team 检查
+          # Dart 代码由 Xcode 的 "Run Script"(flutter assemble) 阶段自动编译
+          cd ios
+          xcodebuild \
+            -workspace Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath ../build/ios_build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
+          cd ..
 
-          # 手动打包 IPA：.ipa 本质就是 Payload/*.app 的 zip
-          mkdir -p build/ios/ipa/Payload
-          APP_PATH=$(find build/ios/iphoneos -name "Runner.app" -type d | head -1)
+      - name: Package IPA (zip Payload/Runner.app)
+        run: |
+          APP_PATH=$(find build/ios_build/Build/Products -name "Runner.app" -type d | head -1)
           if [ -z "$APP_PATH" ]; then
             echo "ERROR: No Runner.app found"
-            find build/ios -name "*.app" 2>/dev/null || true
+            find build -name "*.app" -type d 2>/dev/null || true
             exit 1
           fi
           echo "App found: $APP_PATH"
+          mkdir -p build/ios/ipa/Payload
           cp -R "$APP_PATH" build/ios/ipa/Payload/Runner.app
           cd build/ios/ipa && zip -rq Runner.ipa Payload/
           cd -
