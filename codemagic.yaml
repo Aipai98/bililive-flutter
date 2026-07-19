@@ -29,4 +29,4 @@ workflows:
     publishing:
       email:
         recipients:
-          - user@example.com   # 改成你自己的邮箱，构建完成会收到下载链接；也可留空直接在 Codemagic 控制台下载
+          - 1558791782@qq.com   # 改成你自己的邮箱，构建完成会收到下载链接；也可留空直接在 Codemagic 控制台下载
