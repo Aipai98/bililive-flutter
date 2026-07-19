@@ -18,6 +18,9 @@ jobs:
           git clone --depth 1 --branch stable https://github.com/flutter/flutter.git $HOME/flutter-sdk
           echo "$HOME/flutter-sdk/bin" >> $GITHUB_PATH
 
+      - name: Pre-cache iOS engine
+        run: flutter precache --ios
+
       - name: Flutter pub get
         run: flutter pub get
 
