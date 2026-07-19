@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'services/api_service.dart';
 import 'pages/streamer_list_page.dart';
 import 'pages/files_page.dart';
+import 'pages/task_queue_page.dart';
 import 'pages/settings_page.dart';
 
 void main() => runApp(const MyApp());
@@ -43,6 +44,7 @@ class _HomePageState extends State<HomePage> {
     _pages = [
       StreamerListPage(api: widget.api),
       FilesPage(api: widget.api),
+      TaskQueuePage(api: widget.api),
       SettingsPage(api: widget.api),
     ];
   }
@@ -57,6 +59,7 @@ class _HomePageState extends State<HomePage> {
         destinations: const [
           NavigationDestination(icon: Icon(Icons.live_tv), label: '主播'),
           NavigationDestination(icon: Icon(Icons.folder), label: '文件'),
+          NavigationDestination(icon: Icon(Icons.list_alt), label: '任务队列'),
           NavigationDestination(icon: Icon(Icons.settings), label: '设置'),
         ],
       ),

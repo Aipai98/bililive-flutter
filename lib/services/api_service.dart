@@ -127,6 +127,21 @@ class ApiService {
   Future<void> stopRecord(String id) async => _post('/recorder/$id/stop_record', '{}');
   Future<void> checkStreamer(String id) async => _get('/recorder/$id');
 
+  // ---- 解析直播间地址（官方解析器，和后台网页一致） ----
+  // 输入直播间地址，返回 {providerId, channelId}，失败抛 ApiException
+  Future<Map<String, String>> resolveChannel(String url) async {
+    final enc = Uri.encodeQueryComponent(url);
+    final raw = await _get('/recorder/manager/resolve?url=$enc');
+    final j = jsonDecode(raw);
+    final p = j['payload'] is Map ? j['payload'] as Map<String, dynamic> : j;
+    final providerId = p['providerId']?.toString() ?? '';
+    final channelId = p['channelId']?.toString() ?? '';
+    if (providerId.isEmpty || channelId.isEmpty) {
+      throw ApiException('无法识别该直播间地址');
+    }
+    return {'providerId': providerId, 'channelId': channelId};
+  }
+
   // ---- 统计 ----
   Future<Map<String, dynamic>> getStatistics() async {
     final raw = await _get('/common/statistics');
@@ -135,6 +150,14 @@ class ApiService {
       return j['payload'] as Map<String, dynamic>;
     }
     return j as Map<String, dynamic>;
+  }
+
+  // ---- 任务队列 ----
+  Future<List<Map<String, dynamic>>> getTaskList() async {
+    final raw = await _get('/task');
+    final j = jsonDecode(raw);
+    final list = j['list'] is List ? j['list'] as List : [];
+    return list.map((e) => e as Map<String, dynamic>).toList();
   }
 
   // ---- 文件 ----

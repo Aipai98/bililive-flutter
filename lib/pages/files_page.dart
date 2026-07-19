@@ -14,6 +14,7 @@ class FilesPage extends StatefulWidget {
 class _FilesPageState extends State<FilesPage> {
   List<FileItem> _list = [];
   bool _loading = false;
+  bool _canDelete = false;
   String _currentPath = '';
   String _parentPath = '';
   String? _err;
@@ -31,6 +32,7 @@ class _FilesPageState extends State<FilesPage> {
       setState(() {
         _parentPath = r.parentPath ?? '';
         if (r.currentPath.isNotEmpty) _currentPath = r.currentPath;
+        _canDelete = r.deleteEnabled;
         _list = r.list;
         _loading = false;
         _err = null;
@@ -111,14 +113,15 @@ class _FilesPageState extends State<FilesPage> {
       builder: (_) => SafeArea(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           if (!f.isDir) ...[
-            ListTile(
-              leading: const Icon(Icons.delete, color: Colors.red),
-              title: const Text('删除'),
-              onTap: () {
-                Navigator.pop(context);
-                _confirmDelete(f);
-              },
-            ),
+            if (_canDelete)
+              ListTile(
+                leading: const Icon(Icons.delete, color: Colors.red),
+                title: const Text('删除'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _confirmDelete(f);
+                },
+              ),
             ListTile(
               leading: const Icon(Icons.copy),
               title: const Text('复制路径'),
@@ -182,42 +185,59 @@ class _FilesPageState extends State<FilesPage> {
             }),
         ],
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _err != null
-              ? Center(child: Text('加载失败: $_err'))
-              : _list.isEmpty
-                  ? const Center(child: Text('空目录'))
-                  : RefreshIndicator(
-                      onRefresh: _load,
-                      child: ListView.builder(
-                        padding: const EdgeInsets.all(6),
-                        itemCount: _list.length,
-                        itemBuilder: (_, i) {
-                          final f = _list[i];
-                          return Card(
-                            margin: const EdgeInsets.all(6),
-                            child: ListTile(
-                              leading: CircleAvatar(
-                                backgroundColor: _iconBg(f),
-                                child: Icon(_icon(f), color: Colors.black54),
-                              ),
-                              title: Text(f.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-                              subtitle: Text(
-                                f.isDir ? '文件夹'
-                                    : '${_fmtSize(f.size)}${f.mtimeMs > 0 ? ' · ${_fmtDate(f.mtimeMs)}' : ''}',
-                                style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                              trailing: f.isDir ? null : IconButton(
-                                icon: const Icon(Icons.more_vert),
-                                onPressed: () => _showMenu(f, context),
-                              ),
-                              onTap: () => _onTap(f),
-                              onLongPress: f.isDir ? null : () => _showMenu(f, context),
+      body: Column(
+        children: [
+          if (!_canDelete && !_loading && _err == null)
+            Container(
+              width: double.infinity,
+              color: Colors.orange.shade50,
+              padding: const EdgeInsets.all(10),
+              child: const Text(
+                '当前后端未开启文件删除权限（deleteEnabled=false），无法在 App 内删除文件。'
+                '如需开启，请在你 biliLive-tools 的配置中允许文件删除后重试。',
+                style: TextStyle(fontSize: 12, color: Colors.deepOrange),
+              ),
+            ),
+          Expanded(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator())
+                : _err != null
+                    ? Center(child: Text('加载失败: $_err'))
+                    : _list.isEmpty
+                        ? const Center(child: Text('空目录'))
+                        : RefreshIndicator(
+                            onRefresh: _load,
+                            child: ListView.builder(
+                              padding: const EdgeInsets.all(6),
+                              itemCount: _list.length,
+                              itemBuilder: (_, i) {
+                                final f = _list[i];
+                                return Card(
+                                  margin: const EdgeInsets.all(6),
+                                  child: ListTile(
+                                    leading: CircleAvatar(
+                                      backgroundColor: _iconBg(f),
+                                      child: Icon(_icon(f), color: Colors.black54),
+                                    ),
+                                    title: Text(f.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                                    subtitle: Text(
+                                      f.isDir ? '文件夹'
+                                          : '${_fmtSize(f.size)}${f.mtimeMs > 0 ? ' · ${_fmtDate(f.mtimeMs)}' : ''}',
+                                      style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                                    trailing: f.isDir ? null : IconButton(
+                                      icon: const Icon(Icons.more_vert),
+                                      onPressed: () => _showMenu(f, context),
+                                    ),
+                                    onTap: () => _onTap(f),
+                                    onLongPress: f.isDir ? null : () => _showMenu(f, context),
+                                  ),
+                                );
+                              },
                             ),
-                          );
-                        },
-                      ),
-                    ),
+                          ),
+          ),
+        ],
+      ),
     );
   }
 

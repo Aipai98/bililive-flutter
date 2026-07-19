@@ -119,32 +119,59 @@ class _StreamerListPageState extends State<StreamerListPage> {
   }
 
   void _showAdd() {
+    final urlC = TextEditingController();
     final nameC = TextEditingController();
-    final platC = TextEditingController();
-    final chC = TextEditingController();
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('添加主播'),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
-          TextField(controller: nameC, decoration: const InputDecoration(labelText: '备注名')),
-          TextField(controller: platC, decoration: const InputDecoration(labelText: '平台(如 Bilibili/DouYin)')),
-          TextField(controller: chC, decoration: const InputDecoration(labelText: '房间号/频道ID')),
+          TextField(
+            controller: urlC,
+            decoration: const InputDecoration(
+              labelText: '直播间地址',
+              hintText: '粘贴如 https://live.douyin.com/xxxx',
+            ),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: nameC,
+            decoration: const InputDecoration(labelText: '备注名（可选）'),
+          ),
         ]),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
           TextButton(
             onPressed: () {
-              if (platC.text.trim().isEmpty || chC.text.trim().isEmpty) return;
+              final url = urlC.text.trim();
+              if (url.isEmpty) return;
               Navigator.pop(context);
-              _op('添加', () => widget.api.addStreamer(
-                    platC.text.trim(), chC.text.trim(), nameC.text.trim()));
+              _addByUrl(url, nameC.text.trim());
             },
             child: const Text('添加'),
           ),
         ],
       ),
     );
+  }
+
+  // 按直播间地址自动识别平台+频道（使用后台官方解析器）
+  Future<void> _addByUrl(String url, String remarks) async {
+    try {
+      final r = await widget.api.resolveChannel(url);
+      await widget.api.addStreamer(
+          r['providerId']!, r['channelId']!, remarks);
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('添加成功')));
+        _load();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('添加失败：$e')));
+      }
+    }
   }
 
   void _openDetail(Streamer s) {
