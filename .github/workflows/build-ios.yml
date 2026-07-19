@@ -24,25 +24,17 @@ jobs:
       - name: Flutter pub get
         run: flutter pub get
 
-      - name: Install CocoaPods
-        run: cd ios && pod install --repo-update
-
-      - name: Build & Package IPA (manual — xcodebuild export needs teamID)
+      - name: Build & Package IPA (manual — avoid codesign/team requirement)
         run: |
-          # Step 1: Build archive (--no-codesign produces xcarchive but skips auto-export)
-          flutter build ipa --no-codesign --release
+          # 用 `build ios --no-codesign` 只编译出 .app，不触发 export/签名（无需 Development Team）
+          flutter build ios --release --no-codesign
 
-          # Step 2: Verify archive exists
-          echo "=== Archive ==="
-          ls -lh build/ios/archive/*.xcarchive 2>/dev/null || { echo "NO ARCHIVE"; exit 1; }
-
-          # Step 3: Manually package IPA from xcarchive
-          # An .ipa is just a zip of Payload/*.app — no signing/teamID needed
+          # 手动打包 IPA：.ipa 本质就是 Payload/*.app 的 zip
           mkdir -p build/ios/ipa/Payload
-          APP_PATH=$(find build/ios/archive/Runner.xcarchive/Products/Applications -name "*.app" -type d | head -1)
+          APP_PATH=$(find build/ios/iphoneos -name "Runner.app" -type d | head -1)
           if [ -z "$APP_PATH" ]; then
-            echo "ERROR: No .app found in archive"
-            find build/ios/archive -name "*.app" 2>/dev/null || true
+            echo "ERROR: No Runner.app found"
+            find build/ios -name "*.app" 2>/dev/null || true
             exit 1
           fi
           echo "App found: $APP_PATH"
@@ -50,7 +42,6 @@ jobs:
           cd build/ios/ipa && zip -rq Runner.ipa Payload/
           cd -
 
-          # Step 4: Verify result
           echo "=== Final IPA ==="
           ls -lh build/ios/ipa/Runner.ipa || exit 1
           unzip -l build/ios/ipa/Runner.ipa | head -10
