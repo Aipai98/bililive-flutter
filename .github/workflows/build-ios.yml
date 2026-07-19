@@ -24,28 +24,24 @@ jobs:
       - name: Flutter pub get
         run: flutter pub get
 
-      - name: Configure Xcode project (no build — avoids flutter build team check)
+      - name: Migrate to Swift Package Manager (drop CocoaPods)
+        run: |
+          cd ios
+          rm -rf Pods Podfile Podfile.lock
+          # 移除 Flutter xcconfig 里对 Pods 的 #include（否则编译找不到已删除的 Pods-Runner.xcconfig）
+          sed -i '' '/Pods-Runner/d' Flutter/Debug.xcconfig
+          sed -i '' '/Pods-Runner/d' Flutter/Release.xcconfig
+          # 移除 xcworkspace 对 Pods.xcodeproj 的引用（Flutter 会用 SPM 重新生成）
+          sed -i '' '/Pods.xcodeproj/d' Runner.xcworkspace/contents.xcworkspacedata
+
+      - name: Configure Xcode project (SPM, no codesign/team)
         run: flutter build ios --release --no-codesign --config-only
-
-      - name: Install CocoaPods deps (regenerate Pods + Podfile.lock in sync)
-        run: |
-          cd ios
-          rm -rf Pods Podfile.lock
-          pod install
-
-      - name: Force Podfile.lock == Pods/Manifest.lock (bypass CocoaPods check)
-        run: |
-          cd ios
-          # CocoaPods 的 [CP] Check Pods Manifest.lock 脚本在 CI 下常误判两者不一致而 exit 65
-          # 新版 Xcode 会过滤 xcodebuild 的环境变量，故 DISABLE_PODS_PODFILE_LOCK_VALIDATION 不生效
-          # 直接拿刚 pod install 生成的 Podfile.lock 覆盖 Pods/Manifest.lock，强制 diff 相等、放行
-          # （pods 即本次 install 产物，内容本就相同，覆盖零风险）
-          cp -f Podfile.lock Pods/Manifest.lock 2>/dev/null || true
 
       - name: Build unsigned .app via xcodebuild (signing fully disabled)
         run: |
           # 直接用 xcodebuild 并彻底关闭签名，绕开 flutter build 的 Development Team 检查
           # Dart 代码由 Xcode 的 "Run Script"(flutter assemble) 阶段自动编译
+          # 已迁 SPM，无 [CP] Check Pods Manifest.lock 阶段、无需 pod 环境变量，彻底规避之前的全部坑
           cd ios
           xcodebuild \
             -workspace Runner.xcworkspace \
