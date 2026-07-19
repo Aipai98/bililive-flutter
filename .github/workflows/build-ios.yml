@@ -30,8 +30,17 @@ jobs:
       - name: Build unsigned IPA
         run: flutter build ipa --no-codesign --release
 
+      - name: Find & expose IPA
+        run: |
+          echo "=== 查找 IPA ==="
+          find . -name "*.ipa" -type f 2>/dev/null | while read f; do echo "FOUND: $f ($(du -h "$f" | cut -f1))"; done
+          mkdir -p output
+          cp -v $(find . -name "*.ipa" -type f 2>/dev/null | head -1) output/Runner.ipa 2>/dev/null || echo "NO IPA FOUND"
+          ls -lh output/ 2>/dev/null || true
+
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
         with:
           name: Runner.ipa
-          path: build/ios/ipa/Runner.ipa
+          path: output/
+          if-no-files-found: warn
