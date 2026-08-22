@@ -1,0 +1,18 @@
+node_modules/
+dist/
+.DS_Store
+*.log
+
+# Capacitor / iOS generated outputs
+ios/App/Pods/
+ios/Pods/
+ios/build/
+ios/App/build/
+ios/App.xcworkspace/xcuserdata/
+ios/App.xcodeproj/xcuserdata/
+ios/DerivedData/
+
+android/app/build/
+android/build/
+android/.gradle/
+android/local.properties

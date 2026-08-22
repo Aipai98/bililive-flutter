@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no"
+    />
+    <meta name="theme-color" content="#0f172a" />
+    <title>biliLive Tools 移动版</title>
+    <link rel="manifest" href="manifest.json" />
+    <link rel="apple-touch-icon" href="icons/icon-192.png" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <div class="brand">
+        <span class="brand-dot"></span>
+        <span class="brand-name">biliLive Tools</span>
+      </div>
+      <button
+        type="button"
+        id="server-status"
+        class="server-status"
+        aria-label="服务器状态"
+      >
+        <span class="status-dot"></span>
+        <span class="status-text">未连接</span>
+      </button>
+    </header>
+
+    <main class="app-main">
+      <section
+        id="view-record"
+        class="view view-active"
+        aria-labelledby="record-title"
+      >
+        <h2 id="record-title" class="view-title">直播录制</h2>
+        <p class="view-sub">填写直播间信息并开始录制</p>
+
+        <form id="record-form" class="card">
+          <label class="field">
+            <span class="field-label">直播间 URL 或房间号</span>
+            <input
+              id="room-input"
+              type="text"
+              inputmode="text"
+              placeholder="https://live.bilibili.com/123456"
+              required
+            />
+          </label>
+
+          <div class="field-grid">
+            <label class="field">
+              <span class="field-label">画质</span>
+              <select id="quality">
+                <option value="origin">原画</option>
+                <option value="蓝光 8M">蓝光 8M</option>
+                <option value="蓝光 4M">蓝光 4M</option>
+                <option value="高清">高清</option>
+                <option value="流畅">流畅</option>
+              </select>
+            </label>
+
+            <label class="field">
+              <span class="field-label">录制格式</span>
+              <select id="format">
+                <option value="flv">FLV</option>
+                <option value="ts">TS</option>
+                <option value="mp4">MP4</option>
+              </select>
+            </label>
+          </div>
+
+          <label class="field">
+            <span class="field-label">保存目录（相对于服务端）</span>
+            <input id="save-path" type="text" value="./recordings" />
+          </label>
+
+          <label class="field field-inline">
+            <input id="auto-split" type="checkbox" checked />
+            <span class="field-label">按大小自动分段</span>
+          </label>
+
+          <label class="field">
+            <span class="field-label">分段阈值 (GB)</span>
+            <input id="split-size" type="number" min="0.1" step="0.1" value="2" />
+          </label>
+
+          <div class="actions">
+            <button type="submit" class="btn btn-primary">加入录制队列</button>
+            <button type="reset" class="btn btn-ghost">清空表单</button>
+          </div>
+        </form>
+
+        <div class="card" aria-live="polite">
+          <h3 class="card-title">当前运行</h3>
+          <div id="active-task" class="active-task">
+            <span class="muted">暂无正在录制的任务</span>
+          </div>
+        </div>
+      </section>
+
+      <section id="view-queue" class="view" aria-labelledby="queue-title">
+        <h2 id="queue-title" class="view-title">任务队列</h2>
+        <p class="view-sub">查看、调整和管理所有录制任务</p>
+
+        <div class="queue-filter" role="tablist">
+          <button data-filter="all" class="chip chip-active">全部</button>
+          <button data-filter="waiting" class="chip">等待中</button>
+          <button data-filter="running" class="chip">进行中</button>
+          <button data-filter="done" class="chip">已完成</button>
+          <button data-filter="failed" class="chip">失败</button>
+        </div>
+
+        <ul id="queue-list" class="queue-list" aria-live="polite"></ul>
+        <p id="queue-empty" class="muted center">队列为空，去录制页添加一个吧 👀</p>
+      </section>
+    </main>
+
+    <nav class="tabbar" role="navigation">
+      <button data-route="record" class="tab tab-active" aria-label="录制">
+        <span class="tab-icon" aria-hidden="true">●</span>
+        <span class="tab-label">录制</span>
+      </button>
+      <button data-route="queue" class="tab" aria-label="队列">
+        <span class="tab-icon" aria-hidden="true">▤</span>
+        <span class="tab-label">队列</span>
+      </button>
+    </nav>
+
+    <div
+      id="toast"
+      class="toast"
+      role="status"
+      aria-live="polite"
+    ></div>
+
+    <script src="app.js"></script>
+  </body>
+</html>

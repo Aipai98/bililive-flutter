@@ -1,0 +1,27 @@
+{
+  "name": "bililive-mobile",
+  "version": "0.1.0",
+  "private": true,
+  "description": "biliLive Tools 移动端 — 基于 Capacitor 的 iOS PWA",
+  "scripts": {
+    "sync": "cap sync ios",
+    "open": "cap open ios",
+    "build": "cap sync ios && cap copy ios",
+    "add:ios": "cap add ios",
+    "add:android": "cap add android"
+  },
+  "dependencies": {
+    "@capacitor/cli": "^6.1.0",
+    "@capacitor/core": "^6.1.0",
+    "@capacitor/ios": "^6.1.0",
+    "@capacitor/app": "^6.0.1",
+    "@capacitor/haptics": "^6.0.1",
+    "@capacitor/status-bar": "^6.0.1",
+    "@capacitor/keyboard": "^6.0.2",
+    "@capacitor/preferences": "^6.0.2",
+    "@capacitor/network": "^6.0.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0"
+  }
+}

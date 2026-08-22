@@ -1,0 +1,13 @@
+{
+  "appId": "io.bililive.mobile",
+  "appName": "biliLive Tools",
+  "webDir": "www",
+  "bundledWebRuntime": false,
+  "ios": {
+    "backgroundColor": "#0b1020",
+    "allowsArbitraryLoads": true
+  },
+  "android": {
+    "backgroundColor": "#0b1020"
+  }
+}

@@ -1,0 +1,240 @@
+name: Build iOS IPA
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'www/**'
+      - 'capacitor.config.*'
+      - 'package.json'
+      - '.github/workflows/build-ipa.yml'
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      signing:
+        description: 'Signing mode (adhoc or appstore)'
+        required: true
+        type: choice
+        default: adhoc
+        options:
+          - adhoc
+          - appstore
+      upload:
+        description: 'Attach IPA to draft release when a tag is published'
+        required: true
+        type: choice
+        default: 'true'
+        options:
+          - 'true'
+          - 'false'
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  build-ipa:
+    name: Build iOS IPA
+    runs-on: macos-14
+    timeout-minutes: 60
+    env:
+      NODE_VERSION: '20'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Setup Ruby (for CocoaPods)
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+
+      - name: Cache CocoaPods
+        uses: actions/cache@v4
+        with:
+          path: ios/Pods
+          key: ${{ runner.os }}-pods-${{ hashFiles('**/Podfile.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pods-
+
+      - name: Decide signing mode
+        id: sign
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            echo "mode=appstore" >> "$GITHUB_OUTPUT"
+            echo "upload=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "mode=${{ github.event.inputs.signing || 'adhoc' }}" >> "$GITHUB_OUTPUT"
+            echo "upload=${{ github.event.inputs.upload || 'false' }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install JS dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Add iOS platform if missing
+        run: |
+          if [ ! -d ios ]; then
+            npx cap add ios
+          else
+            echo "iOS platform already present, skipping cap add ios"
+          fi
+
+      - name: Sync web assets to iOS
+        run: npx cap sync ios
+
+      - name: Install CocoaPods CLI
+        shell: bash
+        run: |
+          set -e
+          if ! command -v pod >/dev/null 2>&1; then
+            sudo gem install --no-document cocoapods --version "1.15.2"
+          else
+            echo "pod already installed: $(pod --version)"
+          fi
+
+      - name: Install CocoaPods project dependencies
+        working-directory: ios/App
+        shell: bash
+        run: |
+          set -o pipefail
+          if [ -f Podfile ]; then
+            pod install --repo-update
+          else
+            echo "No Podfile found, skipping pod install"
+          fi
+
+      - name: Import signing material (appstore mode only)
+        if: steps.sign.outputs.mode == 'appstore'
+        shell: bash
+        env:
+          APPLE_CERT_BASE64: ${{ secrets.APPLE_CERT_BASE64 }}
+          APPLE_CERT_PASSWORD: ${{ secrets.APPLE_CERT_PASSWORD }}
+          APPLE_PROVISION_BASE64: ${{ secrets.APPLE_PROVISION_BASE64 }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          set -euo pipefail
+          KEYCHAIN=build.keychain
+          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN
+          security set-keychain-settings -lut 21600 $KEYCHAIN
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN
+
+          CERT_PATH=$(mktemp).p12
+          echo -n "$APPLE_CERT_BASE64" | base64 --decode > "$CERT_PATH"
+          security import "$CERT_PATH" -k $KEYCHAIN -P "$APPLE_CERT_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN
+          security list-keychain -d user -s $KEYCHAIN
+
+          PROV_PATH=ios/App/bililive.mobileprovision
+          mkdir -p "$(dirname $PROV_PATH)"
+          echo -n "$APPLE_PROVISION_BASE64" | base64 --decode > "$PROV_PATH"
+
+      - name: Write exportOptions.plist
+        working-directory: ios
+        shell: bash
+        run: |
+          if [ "${{ steps.sign.outputs.mode }}" = "appstore" ]; then
+            cat > exportOptions.plist <<'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>app-store</string>
+            <key>teamID</key>
+            <string>${{ secrets.APPLE_TEAM_ID }}</string>
+            <key>uploadSymbols</key>
+            <true/>
+            <key>signingStyle</key>
+            <string>manual</string>
+          </dict>
+          </plist>
+          EOF
+          else
+            cat > exportOptions.plist <<'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>ad-hoc</string>
+            <key>signingStyle</key>
+            <string>manual</string>
+            <key>strip</key>
+            <true/>
+          </dict>
+          </plist>
+          EOF
+          fi
+
+      - name: Archive (xcodebuild)
+        working-directory: ios/App
+        shell: bash
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination "generic/platform=iOS" \
+            -archivePath "$GITHUB_WORKSPACE/ios/build/bililive.xcarchive" \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            ONLY_ACTIVE_ARCH=NO \
+            archive 2>&1 | tee "$GITHUB_WORKSPACE/xcodebuild-archive.log"
+
+      - name: Export IPA
+        working-directory: ios/App
+        shell: bash
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -exportArchive \
+            -archivePath "$GITHUB_WORKSPACE/ios/build/bililive.xcarchive" \
+            -exportPath "$GITHUB_WORKSPACE/ios/build/ipa" \
+            -exportOptionsPlist "$GITHUB_WORKSPACE/ios/exportOptions.plist" \
+            2>&1 | tee "$GITHUB_WORKSPACE/xcodebuild-export.log"
+          ls -la "$GITHUB_WORKSPACE/ios/build/ipa"
+
+      - name: Build artifact name
+        id: meta
+        shell: bash
+        run: |
+          TS=$(date -u +"%Y%m%d-%H%M")
+          TAG="${{ github.ref_type == 'tag' && github.ref_name || '' }}"
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          if [ -n "$TAG" ]; then
+            NAME="bililive-${TAG}-${TS}-${SHORT_SHA}"
+          else
+            NAME="bililive-${TS}-${SHORT_SHA}"
+          fi
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "ipa=${NAME}.ipa" >> "$GITHUB_OUTPUT"
+
+      - name: Upload IPA as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.meta.outputs.ipa }}
+          path: ios/build/ipa/*.ipa
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Attach IPA to GitHub Release
+        if: steps.sign.outputs.upload == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ios/build/ipa/*.ipa
+            xcodebuild-archive.log
+            xcodebuild-export.log
+          generate_release_notes: true
